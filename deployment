@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+#/bin/env python3
+#-*- coding: utf-8 -*-
+##############################################
+# Home	: http://netkiller.sf.net
+# Author: Neo <netkiller@msn.com>
+##############################################
+
+try:
+	import logging, configparser
+	import threading
+	from optparse import OptionParser, OptionGroup
+	import os,io,sys
+	import time
+	#from datetime import datetime
+	from rsync import *
+except ImportError as err:
+	print("Error: %s" %(err))	 
+
+class Git():
+	cmd = []
+	def __init__(self, workspace = None, logging = None):
+		self.workspace = workspace
+		#if not os.path.exists(self.workspace):
+		#	os.makedirs(self.workspace)
+		pass
+#		 self.logging = logging
+#		 self.config = configparser.SafeConfigParser()
+#		 cfg='schedule.cfg'
+#		 self.config.read(cfg)
+	def option(self, opt):
+		if opt:
+			self.opt = opt
+	def clone(self, uri):
+		if self.workspace :
+			self.cmd.append('clone '+ uri +' '+ self.workspace)
+	def pull(self):
+		if self.workspace :
+			os.chdir(self.workspace)
+			self.cmd.append('reset HEAD --hard')
+			self.cmd.append('pull --progress')
+	def branch(self, branchname=None, op=None):
+		os.chdir(self.workspace)
+		if branchname :
+			if op == 'delete':
+				self.cmd.append('branch -D '+branchname)
+			elif op == 'new':
+				self.cmd.append('checkout -fb '+branchname+' --')
+			else:
+				self.cmd.append('reset HEAD --hard')
+				self.cmd.append('checkout -f '+branchname+' --')
+		else:
+			self.cmd.append('branch')
+		
+	def tag(self, tagname):
+		os.chdir(self.workspace)
+		self.cmd.append('tag ' + tagname)
+	def checkout(self, revision=None):
+		os.chdir(self.workspace)
+		if revision :
+			self.cmd.append('checkout -f '+revision)
+	def debug(self):
+		for line in self.cmd:
+			print('git ' + line)
+	def execute(self):
+		for line in self.cmd:
+			os.system('git '+ line)
+		self.cmd = []
+
+class Deployment():
+	debug = False
+	def __init__(self):
+		self.config = {}
+
+		usage = "usage: %prog [options] {branch|stage} project"
+		self.parser = OptionParser(usage)
+
+		self.parser.add_option("-r", "--revert", dest="revert", default=False,help="revert to revision")
+		self.parser.add_option('','--backup', dest="backup", help='backup remote to local', default=None)
+		self.parser.add_option('','--clean', action="store_true", help='')
+		#self.parser.add_option("-d", "--debug", action="store_true", help="Print debug information")
+		group = OptionGroup(self.parser, "stage", "development | testing | production")
+		self.parser.add_option_group(group)
+		group = OptionGroup(self.parser, 'project', '<host>.<domain>')
+		self.parser.add_option_group(group)
+
+		group = OptionGroup(self.parser, "branch", "branch management")
+		group.add_option("-c", "--checkout", dest="checkout", metavar="master|trunk", default='', help="checkout branch")		
+		group.add_option('-n', "--new", dest="new", metavar="branch", default=None, help="Create new branch")
+		group.add_option("-d", "--delete", dest="delete", metavar="branch", help="delete branch")
+		group.add_option('','--release', dest="release", help='release version exampe:'+ time.strftime('%Y-%m-%d',time.localtime(time.time())) , default=None)
+		#group.add_option("-e", action="store_true", help="Print every action done")
+		
+		self.parser.add_option_group(group)
+		
+		#self.parser.add_option('-v','--version',action='store_true', help='print version number')
+		#self.parser.add_option('-d','--daemon', dest='daemon', action='store_true', help='run as daemon')
+		#self.parser.add_option('','--logfile', help='logs file.', default='backup.log')	
+
+		self.config	= self.configure('config/main.cfg','Core')
+		self.logging = self.logfile(self.config['logfile'])
+		
+		#print(self.config)
+
+	def configure(self,inifile, section = None):
+		conf = {}
+		try:
+			if not os.path.exists(inifile):
+				raise Exception('Cannot open file', inifile)
+			config = configparser.SafeConfigParser()
+			config.read(inifile)
+			if section :
+				conf = dict(config.items(section))
+			else:
+				for sect in config.sections():
+					conf[sect] = dict(config.items(sect))
+			
+				#for (key,value) in cpr.items(sect):
+				#	 self.config[key] = value
+			#print('Cannot read file: '+inifile)
+		except configparser.NoSectionError as err:
+			print("Error: %s %s" %(err, inifile))
+			sys.exit(1)
+		except Exception as err:
+			print("Error: %s %s" %(err, inifile))
+			sys.exit(1)
+		return(conf)
+		
+	def logfile(self,log):
+		try:
+			logging.basicConfig(level=logging.NOTSET,
+					format='%(asctime)s %(levelname)-8s %(message)s',
+					datefmt='%Y-%m-%d %H:%M:%S',
+					filename=log,
+					filemode='a')
+		except AttributeError as err:
+			print("Error: %s %s" %(err, self.config['environment']['logfile']))
+			sys.exit(2)
+		return (logging.getLogger())
+		
+	def deploy(self, stage, domain):
+		try:
+			inifile = 'config/'+stage+'/'+domain[domain.find('.')+1:]+'.ini'
+			host = domain[:domain.find('.')]
+			conf = self.configure(inifile, host)
+			
+			if ('source' not in conf):
+				conf['source'] = self.config['source'] +'/'+ domain
+			source = conf['source']	
+
+			if self.options.clean:
+				import shutil
+				shutil.rmtree(source)
+				self.logging.warning('clean '+ source);
+
+			if self.options.backup:
+				backup = Rsync()
+				backup.option('-auzv')
+				backup.source(conf['remote']+'::'+conf['destination'])
+				backup.destination(self.options.backup)
+				backup.execute()
+				self.logging.debug(backup.string());
+				self.logging.info('backup '+conf['remote']+'::'+conf['destination']+' -> '+self.options.backup);
+				return()
+
+			git = Git(source)
+			if os.path.isdir(source):
+				if self.options.revert :
+				#git.pull(source)
+					revision = self.options.revert
+					git.checkout(revision)
+					git.branch()
+					self.logging.info('revision '+ revision);
+				else:
+					git.pull()
+					self.logging.info('pull '+ conf['repository']);
+			else:
+				git.clone(conf['repository'])
+				self.logging.info('clone '+ conf['repository']);
+			#git.debug()
+			git.execute()
+			
+			rsync = Rsync()
+			rsync.option('-auzvP')
+			if('option' in conf):
+				rsync.option(conf['option'])
+			rsync.source(source+'/')
+			rsync.destination(conf['remote']+'::'+conf['destination'])
+			#rsync.debug()
+			rsync.execute()
+			self.logging.debug(rsync.string());
+
+		except NameError as err:
+			print(err)
+		except KeyError as err:
+			print("Error: %s %s" %(err, conf))
+		except IOError as err:
+			print(err)
+		except AttributeError as err:	
+			print(err)
+		#	self.logging.error(err)
+	def branch(self,args):
+		stage = args[1]
+		domain =args[2]
+		try:
+			inifile = 'config/'+stage+'/'+domain[domain.find('.')+1:]+'.ini'
+			host = domain[:domain.find('.')]
+			conf = self.configure(inifile, host)
+			
+			if ('source' not in conf):
+				conf['source'] = self.config['source'] +'/'+ domain
+			
+			git = Git(conf['source'])
+			if self.options.checkout:
+				git.branch(self.options.checkout)
+			elif self.options.delete:
+				git.branch(self.options.delete, 'delete')
+			elif self.options.new:
+				git.branch(self.options.new, 'new')				
+			elif self.options.release:
+				git.tag(self.options.release)
+			else:
+				git.branch()
+			git.execute()
+
+		except configparser.NoSectionError as err:
+			s.list()
+			self.logging.error(err)
+			print(err)
+	def usage(self):
+		self.parser.print_help()
+		print("\n  Example: \n\tdeployment testing www.example.com\n\tdeployment production www.example.com --clean\n\tdeployment testing bbs.example.com --backup=/tmp/backup")
+		print("\n  Homepage: http://netkiller.github.com\tAuthor: Neo <netkiller@msn.com>")
+	def main(self):
+		(self.options, args) = self.parser.parse_args()
+		if self.debug:
+			print("===================================")
+			print(self.options, args)
+			#self.usage()
+			print("===================================")
+
+		if not args: 
+			self.usage()
+		elif args[0] == 'branch':
+			self.branch(args)
+		elif args[0] in ('development','testing','production'):	
+			self.stage = args[0]
+			self.domain =args[1]
+			self.deploy(self.stage, self.domain)
+			self.logging.debug('deployment '+ self.stage+' '+self.domain)
+		else:
+			self.usage()
+			
+if __name__ == '__main__':
+	try:
+		deployment = Deployment()
+		#deployment.debug = True
+		deployment.main()
+	except KeyboardInterrupt:
+		print ("Crtl+C Pressed. Shutting down.")

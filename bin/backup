@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+#/bin/env python3
+#-*- coding: utf-8 -*-
+##############################################
+# Home  : http://netkiller.sf.net
+# Author: Neo <netkiller@msn.com>
+##############################################
+
+try:
+    import logging, configparser
+    import threading
+    from optparse import OptionParser, OptionGroup
+    import os,io,sys
+    from datetime import datetime
+except ImportError as err:
+    print("Error: %s" %(err))    
+
+class Runtime(threading.Thread):
+    def __init__(self, logging):
+        threading.Thread.__init__(self)
+        self.logging = logging
+        #sys.stdin = open('stdin.log', 'r') 
+        #sys.stdout = open('stdout.log', 'a+') 
+        #sys.stderr = open('stderr.log', 'a+')
+
+    def policy(self,policy):
+        policies = {
+            'full': 'rsync -az',
+            'mirror': 'rsync -auz --delete',
+            'differential': 'rsync -auz --delete',
+            'incremental': 'rsync -auz',
+            'clone': 'dd',
+            'copy.cp': 'cp -au',
+            'copy.cp.backup': "cp  --suffix=$(date '+.%Y-%m-%d.%H:%M:%S') ",
+            'copy.scp': 'scp -a',
+            'mirror.ftp': 'wget -m',
+            'mirror.http': 'wget -m',
+            'archive.zip': 'zip',
+            'archive.7zip': '7zip',
+            'archive.cpio': 'cpio',
+            'archive.tar': 'tar zcvf',
+            'archive.cpio':'cpio -o',
+            'snapshot': '',
+            'mysql': 'mysqldump'
+        }
+        return policies[policy]
+
+    def command(self,cfg):
+        commands = {
+            'rsync': 'rsync -auzvP',
+            'sftp' : 'sftp',
+            'scp' : 'scp -r',
+            'cp' : 'cp -r'
+        }
+        
+        if cfg['policy'] == 'mirror':
+            cmd = self.policy(cfg['policy']) + ' ' + cfg['from'] + ' ' + cfg['to'] + ' > /dev/null'
+        elif cfg['policy'] == 'mysql':
+            if cfg['compress']:
+                compress = ' | ' + cfg['compress']
+            cmd = self.policy(cfg['policy']) + ' -h' + cfg['host'] + ' -P' + cfg['port'] + ' -u' + cfg['user'] + ' -p' + cfg['password'] + ' ' + cfg['database'] + ' ' + compress + ' > ' + cfg['to'] + '/' + cfg['database'] + '.' + datetime.today().strftime('%Y-%m-%d.%H:%M:%S') + '.' + cfg['compress'] + '.sql'
+        else:
+            cmd = self.policy(cfg['policy']) + ' ' + cfg['from'] + ' ' + cfg['to'] + ' > /dev/null'
+		
+        return cmd
+		
+    def execute(self,cfg):
+        cmd = self.command(cfg)
+        self.logging.debug(cmd)
+        os.system(cmd)
+class Task():
+    def __init__(self, logging):
+        self.logging = logging
+        self.config = configparser.SafeConfigParser()
+        cfg='task.cfg'
+        self.config.read(cfg)
+    def list(self):
+        for section in self.config.sections():
+            print(section)
+    def new(self):
+        pass
+    def remove(self):
+        pass
+    def change(self):
+        pass
+    def run(self, section):
+        try:
+            cfg = self.config.items(section)
+            r = Runtime(self.logging)
+            #print(cfg)
+            r.execute(dict(cfg))
+            self.logging.info('Task - Run - '+section)
+        except configparser.NoSectionError as err:
+            print(err)
+    def show(self, section):
+        for item in self.config.items(section):
+            #k,v = item
+            print("%s: %s" %(item))
+    def get(self,section):
+        return self.config.items(section)
+class Schedule():
+    def __init__(self, logging):
+        self.logging = logging
+        self.config = configparser.SafeConfigParser()
+        cfg='schedule.cfg'
+        self.config.read(cfg)
+    def list(self):
+        for section in self.config.sections():
+            print(section)
+    def show(self, section):
+        for item in self.config.items(section):
+            print("%s: %s" %(item))
+    def new(self):
+        pass
+    def remove(self):
+        pass
+    def change(self):
+        system('backup.cron')
+    def status(self):
+        pass
+    def run(self, section):
+        threads = []
+        t = Task(self.logging)
+        #t.run(task)
+        self.logging.info('Schedule - Run - '+section)
+        for task,status in self.config.items(section):
+            if status :
+                cfg = t.get(task)
+                r  = Runtime(dict(cfg))
+                r.setName('Thread-' + task)
+                threads.append(r)
+        for t in threads:
+            #print(t.getName())
+            self.logging.info(t.getName())
+            t.start()
+            t.join()
+class Volume():
+    pass
+class Backup():
+    def __init__(self):
+        self.config = {}
+
+        usage = "usage: %prog [options] arg1 arg2 <task>"
+        self.parser = OptionParser(usage)
+        self.parser.add_option("-f", "--file", dest="filename",
+                  help="write report to FILE", metavar="FILE")
+        self.parser.add_option("-q", "--quiet",
+                  action="store_false", dest="verbose", default=True,
+                  help="don't print status messages to stdout")
+        self.parser.add_option('','--config', dest="config", help='Read configuration options from file.', default='backup.cfg')
+        self.parser.add_option('','--task', dest="task", help='task config file.', default='task.cfg')
+        self.parser.add_option('','--schedule', dest="schedule", help='schedule config file.', default='schedule.cfg')
+
+        group = OptionGroup(self.parser, "arg1", "arg1: task | schedule")
+        self.parser.add_option_group(group)
+        group = OptionGroup(self.parser, 'arg2', 'arg2: list | run')
+        self.parser.add_option_group(group)
+
+        group = OptionGroup(self.parser, "Debug Options")
+        group.add_option("", "--debug", action="store_true", help="Print debug information")
+        #group.add_option("-s", "--sql", action="store_true", help="Print all SQL statements executed")
+        #group.add_option("-e", action="store_true", help="Print every action done")
+        #group.add_option("-g", action="store_true", help="")
+        self.parser.add_option_group(group)
+        
+        self.parser.add_option('-v','--version',action='store_true', help='print version number')
+        self.parser.add_option('-d','--daemon', dest='daemon', action='store_true', help='run as daemon')
+        self.parser.add_option('','--logfile', help='logs file.', default='backup.log')
+
+        (options, args) = self.parser.parse_args()
+        self.configure(options)
+        try:
+            logfile = self.config['environment']['logfile']
+        except KeyError as err:
+            logfile = '/tmp/backup.log'
+        
+        try:
+            logging.basicConfig(level=logging.NOTSET,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    filename=logfile,
+                    filemode='a')
+            self.logging = logging.getLogger()
+        except AttributeError as err:
+            print("Error: %s %s" %(err, self.config['environment']['logfile']))
+            sys.exit(2)
+        pass
+
+    def configure(self,options):
+        if options.config:
+            cpr = configparser.SafeConfigParser()
+            cpr.read(options.config)
+            for sect in cpr.sections():
+                self.config[sect] = dict(cpr.items(sect))
+                #for (key,value) in cpr.items(sect):
+                #    self.config[key] = value
+        else:
+            self.config['environment']['logfile'] = 'backup.log'
+        if options.debug:
+            print(self.config)
+
+    def task(self, args):
+        try:
+            t = Task(self.logging)
+            if len(args) <= 1:
+                self.usage()
+            elif args[1] == 'list':
+                t.list()
+            elif args[1] == 'run':
+                if len(args) == 3:
+                    t.run(args[2])
+                else:
+                    t.list()
+            #elif args[1] == 'show':
+            #    if len(args) == 3:
+            #        t.show(args[2])
+            #    else:
+            #        t.list()
+            else:
+                self.usage()
+        except IOError as err:
+            print(err)
+        except configparser.NoSectionError as err:
+            t.list()
+            print(err)
+            self.logging.error(err)
+    def schedule(self,args):
+        try:
+            s = Schedule(self.logging)
+            if len(args) <= 1:
+                self.usage()
+            elif args[1] == 'list':
+                s.list()
+            elif args[1] == 'show':
+                if len(args) == 3:
+                    s.show(args[2])
+                else:
+                    s.list()
+            elif args[1] == 'run':
+                if len(args) == 3:
+                    s.run(args[2])
+                else:
+                    s.list()
+            else:
+                self.usage()
+        except configparser.NoSectionError as err:
+            s.list()
+            self.logging.error(err)
+            print(err)
+    def usage(self):
+        self.parser.print_help()
+        print("\nHomepage: http://netkiller.github.com\tAuthor: Neo <netkiller@msn.com>")
+    def main(self):
+        (options, args) = self.parser.parse_args()
+       
+        if options.daemon:
+            pid = os.fork()
+            if pid > 0:
+                self.logging.info('daemon is ok')
+                sys.exit(0)
+        if not args: 
+            self.usage()
+        elif args[0] == 'task':
+            self.task(args)
+            self.logging.debug('Task')
+        elif args[0] == 'schedule':
+            self.schedule(args)
+            self.logging.debug('Schedule')
+        else:
+            print('')
+
+        if options.debug:
+            print("===================================")
+            print(options, args)
+            print("===================================")
+			
+if __name__ == '__main__':
+    try:
+        backup = Backup()
+        backup.main()
+    except KeyboardInterrupt:
+        print ("Crtl+C Pressed. Shutting down.")

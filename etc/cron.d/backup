@@ -1,0 +1,14 @@
+# m h  dom mon dow   command
+#
+17 *    * * *   test -x /srv/sbin/backup || ( cd / && run-parts --report /srv/etc/cron.hourly )
+25 6    * * *   test -x /srv/sbin/backup || ( cd / && run-parts --report /srv/etc/cron.daily )
+47 6    * * 7   test -x /srv/sbin/backup || ( cd / && run-parts --report /srv/etc/cron.weekly )
+52 6    1 * *   test -x /srv/sbin/backup || ( cd / && run-parts --report /srv/etc/cron.monthly )
+#
+17 *    * * *   test -x /srv/sbin/backup || ( cd /srv/sbin && backup schedule run hourly )
+25 6    * * *   test -x /srv/sbin/backup || ( backup schedule run daily )
+47 6    * * 7   test -x /srv/sbin/backup || ( backup schedule run weekly )
+52 6    1 * *   test -x /srv/sbin/backup || ( backup schedule run monthly )
+
+
+*/30 * * * * /srv/sbin/backup task run www

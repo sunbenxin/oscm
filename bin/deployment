@@ -5,8 +5,6 @@
 # Home	: http://netkiller.sf.net
 # Author: Neo <netkiller@msn.com>
 ##############################################
-CONFIG_DIR='/usr/local/etc/oscm'
-##############################################
 try:
 	import logging, configparser
 	import threading
@@ -14,10 +12,16 @@ try:
 	import os,io,sys
 	import time
 	from datetime import datetime
+
+	basedir=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))	
+	sys.path.append(basedir + '/lib/python3.3/site-packages')	
+	
 	from rsync import *
 except ImportError as err:
 	print("Error: %s" %(err))	 
 
+CONFIG_DIR= basedir + '/etc'
+##############################################	
 class Git():
 	cmd = []
 	def __init__(self, workspace = None, logging = None):
@@ -91,8 +95,8 @@ class Deployment():
 		#self.parser.add_option('-d','--daemon', dest='daemon', action='store_true', help='run as daemon')
 		#self.parser.add_option('','--logfile', help='logs file.', default='backup.log')	
 
-		self.config	= self.configure(CONFIG_DIR+'/oscm.cfg','main')
-		self.node	= self.configure(CONFIG_DIR+'/oscm.cfg','node')
+		self.config	= self.configure(CONFIG_DIR+'/deployment.cfg','main')
+		self.node	= self.configure(CONFIG_DIR+'/deployment.cfg','node')
 		self.logging = self.logfile(self.config['logfile'])
 		
 	def configure(self,inifile, section = None):
@@ -139,7 +143,9 @@ class Deployment():
 		except FileNotFoundError as err:
 			print("Error: %s %s" %(err, file))
 			sys.exit(2)
-			
+		except PermissionError as err:
+			print("Error: %s %s" %(err, file))
+			sys.exit(2)
 		return(log)
 		
 	def deploy(self, stage, domain):
@@ -216,7 +222,7 @@ class Deployment():
 				rsync.backup(conf['backup'])
 			
 			if('exclude' in conf):
-				rsync.exclude(self.node['cfgdir']+'/'+conf['exclude'])
+				rsync.exclude(CONFIG_DIR + '/exclude/' + conf['exclude'])
 			
 			rsync.source(source+'/')
 			

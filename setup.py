@@ -41,11 +41,15 @@ setup(
 		''
 	],
 	scripts=[
-		'bin/deployment'
+		'bin/deployment',
+		'bin/backup',
+		'bin/mysqlshell'
 	],
 	data_files = [
-		('etc/oscm', ['etc/oscm.cfg']),
-		('var/log/oscm', ['log/oscm.log'])
+		('etc', ['etc/deployment.cfg']),
+		('etc', ['etc/task.cfg']),
+		('etc', ['etc/schedule.cfg']),
+		('log', ['log/deployment.log'])
 	]
 )
 

@@ -20,11 +20,12 @@ COPIES=30
 ####################################
 MYSQLDUMP="/usr/bin/mysqldump"
 TIMEPOINT=$(date -u +%Y-%m-%d)
+#TIMEPOINT=$(date -u +%Y-%m-%d.%H:%M:%S)
 MYSQLDUMP_OPTS="-h $BACKUP_HOST -u$BACKUP_USER -p$BACKUP_PASS"
 ####################################
-test ! -w $BACKUP_DIR && echo "Error: $BACKUP_DIR is un-writeable." && exit 0
-
 umask 0077
+test ! -d "$BACKUP_DIR" && mkdir -p "$BACKUP_DIR"
+test ! -w $BACKUP_DIR && echo "Error: $BACKUP_DIR is un-writeable." && exit 0
 
 for dbname in $BACKUP_DBNAME
 do

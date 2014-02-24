@@ -3,6 +3,7 @@ README.txt
 setup.py
 bin/backup
 bin/deployment
+bin/mysqlshell
 etc/deployment.cfg
 etc/schedule.cfg
 etc/task.cfg

@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-#/bin/env python3
 #-*- coding: utf-8 -*-
 ##############################################
-# Home	: http://netkiller.sf.net
+# Home	: http://netkiller.github.io
 # Author: Neo <netkiller@msn.com>
 ##############################################
-try:
-	import logging, configparser
-	import threading
-	from optparse import OptionParser, OptionGroup
-	import os,io,sys
-	import time
-	from datetime import datetime
+import os,io,sys
+import logging, configparser
+import threading
+from optparse import OptionParser, OptionGroup
+import time
+from datetime import datetime	
 
-	basedir=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))	
-	sys.path.append(basedir + '/lib/python3.3/site-packages')	
+basedir=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))	
 	
+try:
+	sys.path.append(basedir + '/lib/python3.3/site-packages')	
 	from rsync import *
 except ImportError as err:
 	print("Error: %s" %(err))	 
@@ -93,7 +92,7 @@ class Deployment():
 		
 		#self.parser.add_option('-v','--version',action='store_true', help='print version number')
 		#self.parser.add_option('-d','--daemon', dest='daemon', action='store_true', help='run as daemon')
-		#self.parser.add_option('','--logfile', help='logs file.', default='backup.log')	
+		#self.parser.add_option('','--logfile', help='logs file.', default='backup.log')
 
 		self.config	= self.configure(CONFIG_DIR+'/deployment.cfg','main')
 		self.node	= self.configure(CONFIG_DIR+'/deployment.cfg','node')

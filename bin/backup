@@ -260,7 +260,7 @@ class Backup():
 			if pid > 0:
 				self.logging.info('daemon is ok')
 				sys.exit(0)
-		if not args: 
+		if not args:
 			self.usage()
 		elif args[0] == 'task':
 			self.task(args)

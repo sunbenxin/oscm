@@ -15,31 +15,14 @@ import re
 class Auditlog():
 	def __init__(self, workspace = None, logging = None):
 		#usage = "usage: %prog [options] {branch|stage} project"
-		usage = ''
+		usage = "\n  Homepage: http://netkiller.github.com\n  Author: Neo <netkiller@msn.com>"
 		self.parser = OptionParser(usage)
 
-		self.parser.add_option("-l", "--logfile", dest="logfile", default=None,help="log file")
-		self.parser.add_option('-r','--regular', dest="regular", default=None, help='regular')
 		self.parser.add_option('-d','--daemon', dest='daemon', action='store_true', default=False, help='run as daemon')
+		self.parser.add_option("-l", "--logfile", dest="logfile", default=None,help="log file example: /var/log/message")
+		self.parser.add_option('-r','--regex', type="string", dest="regex", default=None, help='regex/regexp example: ^Feb')
+		self.parser.add_option('','--regular', dest="regular", default=None, help='regular file')
 		self.parser.add_option('', "--debug", action="store_true", help="Print debug information")
-		#self.parser.add_option('','--clean', action="store_true", help='')
-		
-		#group = OptionGroup(self.parser, "stage", "development | testing | production")
-		#self.parser.add_option_group(group)
-		#group = OptionGroup(self.parser, 'project', '<host>.<domain>')
-		#self.parser.add_option_group(group)
-
-		#group = OptionGroup(self.parser, "branch", "branch management")
-		#group.add_option("-c", "--checkout", dest="checkout", metavar="master|trunk", default='', help="checkout branch")		
-		#group.add_option('-n', "--new", dest="new", metavar="branch", default=None, help="Create new branch")
-		#group.add_option("-d", "--delete", dest="delete", metavar="branch", help="delete branch")
-		#group.add_option('','--release', dest="release", help='release version exampe:'+ time.strftime('%Y-%m-%d',time.localtime(time.time())) , default=None)
-		#group.add_option("-e", action="store_true", help="Print every action done")
-		
-		#self.parser.add_option_group(group)
-		
-		#self.parser.add_option('-v','--version',action='store_true', help='print version number')
-		#self.parser.add_option('','--logfile', help='logs file.', default='backup.log')	
 
 		(self.options, self.args) = self.parser.parse_args()
 		
@@ -50,15 +33,6 @@ class Auditlog():
 
 	def usage(self):
 		self.parser.print_help()
-		#print("\n  Example: \n\tdeployment testing www.example.com\n\tdeployment production www.example.com --clean\n\tdeployment testing bbs.example.com --backup=/tmp/backup")
-		print("\n  Homepage: http://netkiller.github.com\n  Author: Neo <netkiller@msn.com>")
-		
-	def filter(self, logfile, regular):
-		with open(logfile) as files:
-			regex=regular
-			for line in files:
-				if re.search(regex, line):
-					print(line.strip())
 
 	def configure(self,inifile, section = None):
 		conf = {}
@@ -82,6 +56,13 @@ class Auditlog():
 			sys.exit(1)
 		
 		self.config = conf
+
+	def filter(self, logfile, regex):
+		with open(logfile) as files:
+			for line in files:
+				if re.search(regex, line):
+					print(line.strip())
+
 	def daemon(self):
 		try:
 			#print(self.config)
@@ -113,7 +94,6 @@ class Auditlog():
 								print(line.strip())
 							#else:
 							#	print(line)
-				regulardata.close()
 		except Exception as err:
 			print("Error: %s %s" %(err, 'daemon'))
 			sys.exit(1)
@@ -124,14 +104,26 @@ class Auditlog():
 			pid = os.fork()
 			if pid > 0:
 				#self.logging.info('daemon is ok')
-				self.daemon()
 				sys.exit(0)
+	
+		if self.options.logfile :
+			if self.options.regex:
+				self.filter(self.options.logfile, self.options.regex)
+			if self.options.regular:
+				regular = self.options.regular
+
+				if not os.path.exists(regular):
+					raise Exception('Cannot open file', regular)
+
+				with open(regular,'r') as regexs:
+					for regex in regexs:
+						print(regex)
+						#regexs.append(line.strip())
+						self.filter(self.options.logfile, regex.strip())
+
 		else:
-			if self.options.logfile and self.options.regular:
-				self.filter(self.options.logfile, self.options.regular)
-			else:
-				self.usage()
-		
+			self.daemon()
+	
 		if self.options.debug:
 			print("===================================")
 			print(self.options, self.args)

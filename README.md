@@ -20,3 +20,7 @@ Deployment
 Backup
 ------
 [Data backup tools](https://github.com/netkiller/oscm/blob/master/doc/backup.md).	
+
+Audit log
+------
+[Audit log tools](https://github.com/netkiller/oscm/blob/master/doc/auditlog.md).

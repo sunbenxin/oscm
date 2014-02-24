@@ -5,17 +5,19 @@ Auditlog
 Help
 ----
 	$ auditlog
-	Options:
-	  -h, --help            show this help message and exit
-	  -l LOGFILE, --logfile=LOGFILE
-							log file
-	  -r REGULAR, --regular=REGULAR
-							regular
-	  -d, --daemon          run as daemon
-	  --debug               Print debug information
-
+	Usage: 
 	  Homepage: http://netkiller.github.com
 	  Author: Neo <netkiller@msn.com>
+
+	Options:
+	  -h, --help            show this help message and exit
+	  -d, --daemon          run as daemon
+	  -l LOGFILE, --logfile=LOGFILE
+							log file example: /var/log/message
+	  -r REGEX, --regex=REGEX
+							regex/regexp example: ^Feb
+	  --regular=REGULAR     regular file
+	  --debug               Print debug information
 
 Search keyword by regular
 --------------
@@ -36,6 +38,10 @@ Search keyword by regular
 	Feb 24 06:48:30 ubuntu CRON[27658]: (CRON) info (No MTA installed, discarding output)
 	Feb 24 07:09:01 ubuntu CRON[28764]: (root) CMD (  [ -x /usr/lib/php5/maxlifetime ] && [ -x /usr/lib/php5/sessionclean ] && [ -d /var/lib/php5 ] && /usr/lib/php5/sessionclean /var/lib/php5 $(/usr/lib/php5/maxlifetime))
 	Feb 24 07:17:01 ubuntu CRON[28905]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+	
+	$ auditlog -l /var/log/syslog --regular=syslog.reg
+	
+	$ auditlog -l /var/log/syslog --regular=syslog.reg -r '^Feb'
 
 Configure
 ---------

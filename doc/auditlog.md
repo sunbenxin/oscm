@@ -47,22 +47,20 @@ Configure
 ---------
 
 ### auditlog.ini 
-	$ cat etc/auditlog.ini 
 	[syslog]
 	logfile=/var/log/syslog
-	regular=syslog.reg
-
+	;exclude=share/syslog.reg
+	include=share/syslog.reg
+	
 	[dmesg]
 	logfile=/var/log/dmesg
-	regular=dmesg.reg
-
+	include=share/dmesg.reg
+	;exclude=
+	
 	[dpkg]
 	logfile=/var/log/dpkg.log
-	regular=dpkg.reg
-
-	[redis]
-	logfile=/var/log/redis/redis-server.log
-	regular=redis.reg
+	include=share/dpkg.reg
+	exclude=share/dpkg1.reg
 
 ### regular
 	$ cat syslog.reg

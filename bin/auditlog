@@ -210,7 +210,7 @@ class Auditlog():
 				if self.options.debug:
 					print(self.config)
 				for section in self.config:
-					self.daemon(section)
+					self.daemon(self.config[section])
 
 if __name__ == '__main__':
 	try:
